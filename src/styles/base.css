@@ -1,0 +1,169 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
+#root {
+  /* --app-h 由 useAppHeight 設定:手機鍵盤跳出來時會變小,輸入框才不會被蓋住 */
+  height: var(--app-h, 100dvh);
+  overflow: hidden;
+}
+
+h1,
+h2,
+p,
+ul {
+  margin: 0;
+}
+
+ul {
+  padding: 0;
+  list-style: none;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- 共用元件:頭像 ---- */
+
+.avatar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 700;
+  background: var(--u0);
+  color: var(--u-ink);
+}
+
+.avatar[data-size='md'] {
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+}
+
+.avatar[data-size='sm'] {
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+}
+
+.avatar[data-c='0'] { background: var(--u0); }
+.avatar[data-c='1'] { background: var(--u1); }
+.avatar[data-c='2'] { background: var(--u2); }
+.avatar[data-c='3'] { background: var(--u3); }
+.avatar[data-c='4'] { background: var(--u4); }
+.avatar[data-c='5'] { background: var(--u5); }
+.avatar[data-c='6'] { background: var(--u6); }
+.avatar[data-c='7'] { background: var(--u7); }
+
+/* ---- 共用元件:按鈕 ---- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+  transition: filter 0.12s ease;
+}
+
+.btn:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+}
+
+.btn:active:not(:disabled) {
+  filter: brightness(0.86);
+}
+
+.btn:disabled {
+  background: var(--line);
+  color: var(--mute);
+}
+
+.btn--primary {
+  width: 100%;
+  height: 52px;
+  border-radius: 14px;
+  font-size: 16px;
+}
+
+/* ---- 共用元件:旋轉的重新整理圖示(只在沒有要求減少動態時才轉) ---- */
+
+@media (prefers-reduced-motion: no-preference) {
+  .icon-spin {
+    animation: spin 1.1s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- 測試面板(網址帶 ?debug 才會出現) ---- */
+
+.debug {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 50;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 24px);
+  padding: 8px 10px;
+  border: 1px dashed var(--mute);
+  border-radius: 12px;
+  background: var(--panel);
+  font-size: 12px;
+}
+
+.debug button {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+}

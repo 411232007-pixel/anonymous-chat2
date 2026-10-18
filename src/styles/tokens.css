@@ -1,0 +1,66 @@
+/* 顏色、字體:數值來自 docs/design.md。元件只引用變數,不直接寫色碼。 */
+
+:root {
+  color-scheme: light dark;
+
+  --bg: #f4f4f7;
+  --panel: #fbfbfd;
+  --line: #e0e1e8;
+  --ink: #1c1e26;
+  --mute: #666a78;
+  --accent: #4a55c8;
+  --accent-ink: #ffffff;
+  --mine: #e1e4f8;
+  --other: #ffffff;
+  --err: #b3382c;
+  --warn-bg: #f6ebcb;
+  --warn-ink: #5b4410;
+  --warn-text: #7a5a12;
+  --shadow: rgba(28, 30, 38, 0.12);
+  --shadow-pop: rgba(28, 30, 38, 0.18);
+
+  /* 使用者顏色:每個人固定一色,頭像用深色底配白字 */
+  --u0: #a94f3a;
+  --u1: #8f6a12;
+  --u2: #5e7020;
+  --u3: #2f7a52;
+  --u4: #1f7a82;
+  --u5: #3a63ad;
+  --u6: #6e4fae;
+  --u7: #a8467a;
+  --u-ink: #ffffff;
+
+  --font-sans: 'Noto Sans TC', system-ui, -apple-system, 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-serif: 'Noto Serif TC', 'Songti TC', 'PMingLiU', serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121316;
+    --panel: #1a1b21;
+    --line: #2b2d36;
+    --ink: #e7e8ec;
+    --mute: #9ea1ae;
+    --accent: #a5acff;
+    --accent-ink: #101117;
+    --mine: #25284a;
+    --other: #1c1d24;
+    --err: #f2a094;
+    --warn-bg: #3a2f18;
+    --warn-ink: #f0d9a0;
+    --warn-text: #e0c275;
+    --shadow: rgba(0, 0, 0, 0.4);
+    --shadow-pop: rgba(0, 0, 0, 0.4);
+
+    /* 深色:頭像用淺色底配深色字 */
+    --u0: #e39a85;
+    --u1: #ddb45e;
+    --u2: #b4c764;
+    --u3: #7fcb9e;
+    --u4: #6cc5cc;
+    --u5: #8db0ec;
+    --u6: #b79cea;
+    --u7: #e5a0c4;
+    --u-ink: #101117;
+  }
+}

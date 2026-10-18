@@ -1,0 +1,49 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # 測試沒過就不會發布
+      - run: npm test
+      - run: npm run build
+        env:
+          # 網址是 https://<帳號>.github.io/<repo 名稱>/,所以要告訴建置工具這段路徑
+          VITE_BASE: /${{ github.event.repository.name }}/
+          # 階段一用假服務。階段二改成 supabase,並在 repo 的
+          # Settings → Secrets and variables → Actions → Variables 加上
+          # VITE_SUPABASE_URL 與 VITE_SUPABASE_PUBLISHABLE_KEY(兩個都是可公開的值)
+          VITE_CHAT_BACKEND: ${{ vars.VITE_CHAT_BACKEND || 'mock' }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
