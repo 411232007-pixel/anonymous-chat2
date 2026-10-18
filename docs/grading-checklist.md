@@ -3,7 +3,7 @@
 依「匿名聊天室作業:繳交、合規與評分說明」整理。**只記錄實際做過的檢查**;沒做到的、沒辦法驗證的,都寫明。
 驗證日期:2026-10-18。正式網站:https://411232007-pixel.github.io/anonymous-chat2/
 
-圖例:✅ 已驗證 · ⏳ 已寫好但**尚未套用到 Supabase**,所以尚未驗證 · ❓ 需本人確認(從資料看不出來) · ⚠️ 有限制
+圖例:✅ 已驗證 · ❓ 需本人確認(從資料看不出來) · ⚠️ 有限制
 
 ## 1. 合規條件
 
@@ -21,7 +21,7 @@
 ## 2. 基本分
 
 測試方法:`tests/e2e/` 的腳本,用 Playwright 驅動 Edge,**對正式網址**同時開 2 個電腦版(1280×800)與 1 個手機版(360px、390px,觸控)獨立工作階段。本機(localhost)的結果不算。
-結果:`prod-flow.mjs` 34/34、`prod-input-and-offline.mjs` 20/20、`prod-message-order.mjs` 通過。
+結果:`prod-flow.mjs` 34/34、`prod-input-and-offline.mjs` 20/20、`prod-message-order.mjs` 通過(限速啟用前後都測過)。
 
 | 項目 | 狀態 | 證據 |
 |---|---|---|
@@ -107,21 +107,23 @@ A、B、C 各只計一次。細節見 `docs/requirements.md`「新增功能」�
 |---|---|---|---|
 | A | 搜尋訊息 | ✅ | 正式網站:搜尋找到 1 則並標示、無結果提示、搜尋 `onerror` 仍是純文字、關閉後恢復;單元測試 `tests/search.test.ts`(9 項)與 `render-safety.test.ts` |
 | B | 正在輸入提示 | ✅ | 正式網站:兩個獨立瀏覽器,對方約 60ms 內看到「○○ 正在輸入…」;自己不顯示自己;清空、送出後消失;單元測試 `tests/typing-service.test.ts`(節流、停止、5 秒逾時) |
-| C | 伺服器端強制發送頻率限制 | ⏳ **尚未套用、尚未驗證** | SQL 已寫好放在 repo(`supabase/migrations/002_rate_limit.sql`),**還沒有在 Supabase 後台執行**。確認方式:`rate_log` 資料表目前不存在(以公開金鑰查詢回 404)。套用與驗證步驟見第 6 節 |
+| C | 伺服器端強制發送頻率限制 | ✅ / ⚠️ | 已在 Supabase 後台執行 `002_rate_limit.sql`(Success)。① 資料庫自我測試 `rate_limit_test.sql`:`ROLLBACK_OK accepted=6 blocked=2`。② **繞過網頁**直接對 REST API 連續新增 8 則:前 6 則 201、第 7、8 則回 `rate_limited`(HTTP 400);換一個 `client_id` 的正常請求 201;等 11 秒後原 `client_id` 再送 201。③ 從網頁送出被擋時,畫面顯示「送太快了,伺服器暫時擋下這則訊息,請稍等幾秒再送」,文字回到輸入框,訊息沒有出現在聊天室;等 10 秒後重送成功。④ 限速啟用後,完整的正常聊天流程仍全部通過(34/34 與 20/20,含網頁自己連送 5 則)。⑤ 訪客讀取、寫入 `rate_log` 皆 `permission denied`(401),呼叫限速函式(RPC)找不到。⚠️ **「來源 IP」那一層是否真的拿得到 IP,尚未驗證**,見第 6 節第 5 點 |
 
-C 類在套用並驗證之前,不要當成已完成。
+⚠️ 限制:匿名沒有登入,`client_id` 可任意更換;「同一 IP」限制是額外一層,擋不住換 IP 的人。
 
-## 6. 套用並驗證 C(需要你在 Supabase 網頁操作)
+## 6. C 的套用紀錄與剩下的一步
+
+已完成:第 1~4 點(2026-10-18)。**剩下第 5 點需要你在 Supabase 網頁操作。**
 
 1. 打開 Supabase 專案 → 左側 **SQL Editor** → **New query**。
 2. 貼上 `supabase/migrations/002_rate_limit.sql` 的**整個檔案內容** → **Run** → 應顯示 `Success. No rows returned`。
 3. 新開一個 query,貼上 `supabase/tests/rate_limit_test.sql` 整個內容 → **Run**。預期出現 `ERROR: ROLLBACK_OK accepted=6 blocked=2`(故意的,表示通過且已回復原狀)。出現 `FAILED` 開頭的就是沒通過,把文字貼回來。
-4. 回到這個專案請 Claude 繼續:會用公開金鑰直接對 REST API 連續新增,確認前幾則成功、之後回 `rate_limited`,並確認 `rate_log` 對訪客不可讀。這一步會在聊天室留下約 7 則 `[自動測試]` 訊息(見下)。
-5. 另外請在 SQL Editor 執行 `select count(*) filter (where ip_hash is not null) as with_ip, count(*) as total from public.rate_log;`。如果 `with_ip` 是 0,代表 Supabase 沒有把來源 IP 傳給資料庫,「同一 IP」那層限制沒有生效(`client_id` 那層仍有效);需要的話再調整。
+4. 用公開金鑰直接對 REST API 連續新增,確認前幾則成功、之後回 `rate_limited`,並確認 `rate_log` 對訪客不可讀(腳本:`tests/e2e/prod-rate-limit-rest.mjs`,會留下 9 則 `[自動測試]` 訊息)。
+5. **(尚未做)** 請在 SQL Editor 執行 `select count(*) filter (where ip_hash is not null) as with_ip, count(*) as total from public.rate_log;`。如果 `with_ip` 是 0,代表 Supabase 沒有把來源 IP 傳給資料庫,「同一 IP」那層限制沒有生效(`client_id` 那層仍有效);需要的話再調整。
 
 ## 7. 測試留下的資料
 
-為了對正式網站做真實測試,聊天室裡留有數十則以 `[自動測試]` 開頭的訊息(使用者無法刪除)。要清掉,到 SQL Editor 執行:
+為了對正式網站做真實測試,聊天室裡留有約 80 則以 `[自動測試]` 開頭的訊息(使用者無法刪除)。要清掉,到 SQL Editor 執行:
 
 ```sql
 delete from public.messages where content like '[自動測試]%';
@@ -129,7 +131,7 @@ delete from public.messages where content like '[自動測試]%';
 
 ## 8. 還沒做 / 無法驗證的事項彙整
 
-- ⏳ C 類限速尚未套用到資料庫(第 6 節)。
+- ⚠️ C 類「同一來源 IP」那一層是否生效尚未驗證(第 6 節第 5 點);`client_id` 那一層已驗證。
 - ❓ repo 是自己從頭建立、Supabase 專案只屬於自己:需本人確認。
 - ❓ 在 Supabase 後台確認免費方案上限並記錄。
 - ❓ 評分前確認 Supabase 專案沒有被暫停。

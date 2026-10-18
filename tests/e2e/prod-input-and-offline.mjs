@@ -60,8 +60,13 @@ try {
   await sleep(2000)
   const btn = await B.page.$('.new-messages')
   log('往上看舊訊息時出現「有新訊息」,且沒被拉到底', !!btn)
-  if (btn) { await btn.click(); await sleep(800) }
-  const atBottom = await B.page.evaluate(() => { const l = document.querySelector('.list'); return l.scrollHeight - l.scrollTop - l.clientHeight < 60 })
+  if (btn) await btn.click()
+  // 捲動是平滑動畫,訊息越多越久,所以等它到底(最多 10 秒)
+  let atBottom = false
+  for (let i = 0; i < 40 && !atBottom; i++) {
+    await sleep(250)
+    atBottom = await B.page.evaluate(() => { const l = document.querySelector('.list'); return l.scrollHeight - l.scrollTop - l.clientHeight < 60 })
+  }
   log('點「有新訊息」後回到最底並消失', atBottom && !(await B.page.$('.new-messages')))
 
   // 斷線重連:B 離線 → A 送訊息 → B 回線後補上
@@ -82,8 +87,14 @@ try {
   let bannerGone = false
   try { await B.page.waitForFunction(() => !document.querySelector('.banner'), null, { timeout: 20000 }); bannerGone = true } catch {}
   log('回線後提示消失', bannerGone)
-  const namesA = await A.page.$$eval('.online .online-list__name', (e) => e.map((x) => x.textContent))
-  log('回線後名單仍正確(沒有重複的人)', namesA.filter((n) => n === nB).length === 1, namesA.join(','))
+  // 斷線較久時,對方先把我從名單移除,我重新登記後才會再出現,所以等它穩定(最多 15 秒)
+  let namesA = []
+  for (let i = 0; i < 60; i++) {
+    namesA = await A.page.$$eval('.online .online-list__name', (e) => e.map((x) => x.textContent))
+    if (namesA.includes(nB)) break
+    await sleep(250)
+  }
+  log('回線後名單恢復,且沒有重複的人', namesA.filter((n) => n === nB).length === 1, namesA.join(','))
 
   // 深色 / 淺色
   for (const scheme of ['light', 'dark']) {
