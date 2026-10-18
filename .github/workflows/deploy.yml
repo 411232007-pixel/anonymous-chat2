@@ -34,6 +34,8 @@ jobs:
           # Settings → Secrets and variables → Actions → Variables 加上
           # VITE_SUPABASE_URL 與 VITE_SUPABASE_PUBLISHABLE_KEY(兩個都是可公開的值)
           VITE_CHAT_BACKEND: ${{ vars.VITE_CHAT_BACKEND || 'mock' }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
