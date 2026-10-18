@@ -7,54 +7,20 @@
 
 在 supabase.com 建立免費專案(Region 選 Singapore 或 Tokyo)。資料庫密碼自己保管,**不要放進專案**。
 
-## 2. 建立資料表和權限規則
+## 2. 執行 SQL(依序)
 
-左側選 **SQL Editor** → **New query** → 貼上 `supabase/setup.sql` 的**整個檔案內容** → **Run**。
-(只貼 SQL,不要貼到 `#` 開頭的標題行,否則會出現 syntax error。)
-可以重複執行,不會出錯,也不會刪掉已有的訊息。下面是同一份 SQL,方便閱讀。
+左側選 **SQL Editor** → **New query**,**只貼 SQL 檔的整個內容**(不要貼到 `#` 開頭的標題行,否則會出現 syntax error)→ **Run**。
+每個檔案都可以重複執行,不會出錯,也不會刪掉已有的訊息。
 
-```sql
--- 訊息資料表
-create table if not exists public.messages (
-  id         bigint generated always as identity primary key,  -- 嚴格遞增,由資料庫給
-  client_id  text        not null check (char_length(client_id) between 1 and 64),
-  nickname   text        not null check (char_length(nickname) between 1 and 12
-                                         and btrim(nickname) <> ''),
-  content    text        not null check (char_length(content) between 1 and 500
-                                         and btrim(content, E' \t\r\n') <> ''),
-  created_at timestamptz not null default now()                -- 由資料庫決定,不信任手機時鐘
-);
+| 順序 | 檔案 | 做什麼 |
+|---|---|---|
+| 1 | `supabase/migrations/001_messages.sql` | 建立訊息資料表、權限規則(RLS)、即時通知 |
+| 2 | `supabase/migrations/002_rate_limit.sql` | 伺服器端發送頻率限制(新增功能 C) |
+| 3(驗證) | `supabase/tests/rate_limit_test.sql` | 驗證限速。看到 `ROLLBACK_OK accepted=6 blocked=2` 就通過;這個錯誤是故意的,用來回復原狀,不會留下任何資料 |
 
--- 打開 RLS(列級安全規則):沒有規則允許的事,一律不能做
-alter table public.messages enable row level security;
+限速的白話說明:同一個 `client_id` 10 秒內最多 6 則、60 秒內最多 40 則;同一個來源 IP 60 秒內最多 100 則。超過就整筆新增被資料庫拒絕。IP 只存成雜湊值、只保留 10 分鐘,放在訪客讀不到的 `rate_log` 資料表。完整說明見 `docs/architecture.md` 第 14.3 節。
 
--- 訪客只能「讀取」和「新增」,沒有修改、刪除的規則
-drop policy if exists "anyone can read messages" on public.messages;
-create policy "anyone can read messages"
-  on public.messages for select to anon using (true);
-
-drop policy if exists "anyone can add messages" on public.messages;
-create policy "anyone can add messages"
-  on public.messages for insert to anon with check (true);
-
--- 再加一層保險:連資料表權限都收回,只開放需要的
-revoke all on public.messages from anon, authenticated;
-grant select on public.messages to anon;
-grant insert (client_id, nickname, content) on public.messages to anon;  -- 不能自己填 id 和時間
-
--- 新增訊息時,即時通知所有在線的人(Realtime 的 Postgres Changes)
-do $$
-begin
-  if not exists (
-    select 1 from pg_publication_tables
-    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'messages'
-  ) then
-    alter publication supabase_realtime add table public.messages;
-  end if;
-end $$;
-```
-
-## 3. 白話說明
+## 3. 白話說明(基本權限)
 
 - **只能讀、只能新增**:沒有修改、刪除的規則,而且資料表權限也收回了。
 - **訪客只能填三欄**:`client_id`、`nickname`、`content`。編號和時間由資料庫自己決定。

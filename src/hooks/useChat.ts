@@ -64,6 +64,19 @@ function messageItem(message: Message): TimelineItem {
   return { key: `m-${message.id}`, kind: 'message', message }
 }
 
+/**
+ * 新訊息依「訊息編號」放進正確的位置。
+ * 同一時間有好幾個人送訊息時,到達的順序可能和編號不同;照編號排,每個人看到的順序才一致。
+ * 系統提示行沒有編號,留在原位。
+ */
+export function insertByMessageId(items: TimelineItem[], item: TimelineItem): TimelineItem[] {
+  if (item.kind !== 'message') return [...items, item]
+  const id = item.message.id
+  const index = items.findIndex((i) => i.kind === 'message' && i.message.id > id)
+  if (index === -1) return [...items, item]
+  return [...items.slice(0, index), item, ...items.slice(index)]
+}
+
 /** 自己排第一,其他人依加入時間排 */
 function sortUsers(users: User[], selfId: string): User[] {
   return [...users].sort((a, b) => {
@@ -111,7 +124,7 @@ function makeReducer(selfId: string) {
         if (exists) return state
         // 對方送出訊息 = 不再是「正在輸入」
         const typing = state.typing.filter((id) => id !== action.message.clientId)
-        return { ...state, typing, items: [...state.items, messageItem(action.message)] }
+        return { ...state, typing, items: insertByMessageId(state.items, messageItem(action.message)) }
       }
       case 'failed':
         return {

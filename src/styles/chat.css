@@ -553,6 +553,8 @@
 }
 
 .icon-btn {
+  border: 0;
+  background: transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;

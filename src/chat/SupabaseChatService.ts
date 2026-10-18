@@ -79,6 +79,8 @@ export class SupabaseChatService implements ChatService {
   private buffer: Message[] = []
   private seen = new Set<number>()
   private lastId = 0
+  /** 自己送出的訊息排隊一則一則送,同一個人連續送的訊息才會照順序進資料庫 */
+  private sendQueue: Promise<void> = Promise.resolve()
   private lastTypingSentAt = 0
   private typingTimers = new Map<string, ReturnType<typeof setTimeout>>()
   /** 每次加入/離開都加一;過期的非同步回呼靠它辨認並丟掉 */
@@ -144,17 +146,18 @@ export class SupabaseChatService implements ChatService {
       return
     }
     // 不先在畫面上假裝送出:等資料庫的新增事件回來才顯示,所有人看到的順序才一致
-    void (async () => {
+    this.sendQueue = this.sendQueue.then(async () => {
       try {
         const { error } = await this.client
           .from('messages')
           .insert({ client_id: me.clientId, nickname: me.nickname, content })
           .abortSignal(AbortSignal.timeout(SEND_TIMEOUT_MS))
-        if (error) this.fail(content, error.message)
+        // 伺服器的頻率限制會回 rate_limited,畫面要能分辨
+        if (error) this.fail(content, error.message.includes('rate_limited') ? 'rate_limited' : error.message)
       } catch (error) {
         this.fail(content, error instanceof Error ? error.message : 'unknown')
       }
-    })()
+    })
   }
 
   setTyping(typing: boolean): void {
