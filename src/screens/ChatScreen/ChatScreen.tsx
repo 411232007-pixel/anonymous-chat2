@@ -5,16 +5,30 @@ import { ConnectionBanner } from '../../components/ConnectionBanner/ConnectionBa
 import { MessageInput } from '../../components/MessageInput/MessageInput'
 import { MessageList } from '../../components/MessageList/MessageList'
 import { OnlineList } from '../../components/OnlineList/OnlineList'
-import { ChevronIcon } from '../../components/icons'
+import { SearchBar } from '../../components/SearchBar/SearchBar'
+import { TypingIndicator } from '../../components/TypingIndicator/TypingIndicator'
+import { ChevronIcon, SearchIcon } from '../../components/icons'
+import { cleanQuery, matchesQuery } from '../../logic/search'
 
 export function ChatScreen({ chat }: { chat: ChatApi }) {
   const [draft, setDraft] = useState('')
   const [listOpen, setListOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [rawQuery, setRawQuery] = useState('')
   const narrow = useMediaQuery(NARROW_QUERY)
   const popover = useRef<HTMLDivElement>(null)
   const toggle = useRef<HTMLButtonElement>(null)
 
   const online = chat.status === 'connected'
+  const query = searchOpen ? cleanQuery(rawQuery) : ''
+  const resultCount =
+    query === ''
+      ? null
+      : chat.items.filter((i) => i.kind === 'message' && matchesQuery([i.message.content, i.message.nickname], query)).length
+  const closeSearch = () => {
+    setSearchOpen(false)
+    setRawQuery('')
+  }
   const count = chat.users.length
 
   // 送出失敗時,把沒送出去的文字放回輸入框,不讓使用者的字消失
@@ -61,29 +75,45 @@ export function ChatScreen({ chat }: { chat: ChatApi }) {
             <span className="topbar__sub">匿名 · 不用登入</span>
           </div>
 
-          {/* 電腦:只顯示人數,名單固定在右側。手機:點開才看到名單 */}
-          <div className="online-count online-count--static">
-            <span className={online ? 'dot' : 'dot dot--off'} />
-            線上 {count} 人
+          <div className="topbar__actions">
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label="搜尋訊息"
+              aria-pressed={searchOpen}
+              onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
+            >
+              <SearchIcon size={20} />
+            </button>
+
+            {/* 電腦:只顯示人數,名單固定在右側。手機:點開才看到名單 */}
+            <div className="online-count online-count--static">
+              <span className={online ? 'dot' : 'dot dot--off'} />
+              線上 {count} 人
+            </div>
+            <button
+              ref={toggle}
+              type="button"
+              className="online-count online-count--toggle"
+              aria-expanded={listOpen}
+              aria-controls="online-popover"
+              onClick={() => setListOpen((open) => !open)}
+            >
+              <span className={online ? 'dot' : 'dot dot--off'} />
+              線上 {count} 人
+              <ChevronIcon up={listOpen} />
+            </button>
           </div>
-          <button
-            ref={toggle}
-            type="button"
-            className="online-count online-count--toggle"
-            aria-expanded={listOpen}
-            aria-controls="online-popover"
-            onClick={() => setListOpen((open) => !open)}
-          >
-            <span className={online ? 'dot' : 'dot dot--off'} />
-            線上 {count} 人
-            <ChevronIcon up={listOpen} />
-          </button>
         </header>
 
         <ConnectionBanner status={chat.status} />
 
+        {searchOpen && (
+          <SearchBar query={rawQuery} onChange={setRawQuery} onClose={closeSearch} resultCount={resultCount} />
+        )}
+
         <div className="stage">
-          <MessageList items={chat.items} selfId={chat.selfId} loading={!chat.historyLoaded} />
+          <MessageList items={chat.items} selfId={chat.selfId} loading={!chat.historyLoaded} query={query} />
 
           {narrow && listOpen && (
             <div ref={popover} id="online-popover" className="online-pop">
@@ -93,16 +123,20 @@ export function ChatScreen({ chat }: { chat: ChatApi }) {
           )}
         </div>
 
+        <TypingIndicator users={chat.typingUsers} />
+
         <MessageInput
           draft={draft}
           onDraftChange={(value) => {
             setDraft(value)
             chat.clearFailed()
+            chat.notifyTyping(value)
           }}
           onSend={chat.send}
           offline={!online}
           retrySeconds={chat.retrySeconds}
           sendFailed={chat.failed !== null}
+          failReason={chat.failed?.reason}
         />
       </div>
 

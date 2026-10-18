@@ -37,6 +37,8 @@ export interface ChatEvents {
   'presence:sync': User[]
   'presence:joined': User
   'presence:left': User
+  /** 別人開始/停止輸入(新增功能 B)。服務負責逾時:太久沒收到更新就自己發 typing:false */
+  'typing:changed': { clientId: string; typing: boolean }
 }
 
 export type ChatEventName = keyof ChatEvents

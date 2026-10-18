@@ -16,6 +16,7 @@ function record(service: MockChatService) {
     'presence:sync',
     'presence:joined',
     'presence:left',
+    'typing:changed',
   ]
   for (const event of names) {
     service.on(event, (payload: ChatEvents[typeof event]) => log.push({ event, payload }))

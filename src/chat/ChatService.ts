@@ -13,6 +13,8 @@ export interface ChatService {
   join(nickname: string): void
   /** 送出一則已清理、已檢查過的訊息。失敗 → message:failed */
   sendMessage(content: string): void
+  /** 告訴其他人「我正在輸入 / 停止輸入」。服務會自己限制發送次數,畫面可以每次按鍵都呼叫 */
+  setTyping(typing: boolean): void
   /** 主動離開(使用者沒有離開鈕,關掉分頁會自動離開) */
   leave(): void
   /** 只有假服務才有:手動製造斷線、送出失敗等情況,方便測試畫面 */

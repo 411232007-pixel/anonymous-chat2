@@ -543,3 +543,162 @@
     display: none;
   }
 }
+
+/* ---- 搜尋訊息 ---- */
+
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: var(--mute);
+}
+
+.icon-btn:hover,
+.icon-btn[aria-pressed='true'] {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.searchbar {
+  flex: none;
+  padding: 8px 32px 4px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.searchbar__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 760px;
+  margin-inline: auto;
+  padding-left: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+}
+
+.searchbar__row:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.searchbar__icon {
+  display: inline-flex;
+  color: var(--mute);
+}
+
+.searchbar__input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: 15px;
+}
+
+.searchbar__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--mute);
+}
+
+.searchbar__status {
+  max-width: 760px;
+  margin: 4px auto 0;
+  font-size: 12px;
+  color: var(--mute);
+}
+
+mark.hit {
+  padding: 0 1px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: inherit;
+}
+
+/* ---- 正在輸入 ---- */
+
+.typing {
+  flex: none;
+  min-height: 24px;
+  padding: 2px 32px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--mute);
+  max-width: 760px;
+  width: 100%;
+  margin-inline: auto;
+  overflow: hidden;
+}
+
+.typing__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.typing__dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.typing__dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: typing-blink 1.2s infinite ease-in-out;
+}
+
+.typing__dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing__dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-blink {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing__dots span {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+@media (max-width: 760px) {
+  .searchbar {
+    padding-inline: 16px;
+  }
+
+  .typing {
+    padding-inline: 16px;
+  }
+}

@@ -17,6 +17,9 @@ const CONNECT_TIMEOUT_MS = 12_000
 const SEND_TIMEOUT_MS = 10_000
 const RETRY_MS = 3000
 const SEEN_LIMIT = 1000
+/** 「正在輸入」:自己最多每 2.5 秒發一次;別人超過 5 秒沒更新就當作停止 */
+const TYPING_SEND_INTERVAL_MS = 2500
+const TYPING_EXPIRE_MS = 5000
 
 interface MessageRow {
   id: number
@@ -76,6 +79,8 @@ export class SupabaseChatService implements ChatService {
   private buffer: Message[] = []
   private seen = new Set<number>()
   private lastId = 0
+  private lastTypingSentAt = 0
+  private typingTimers = new Map<string, ReturnType<typeof setTimeout>>()
   /** 每次加入/離開都加一;過期的非同步回呼靠它辨認並丟掉 */
   private session = 0
 
@@ -111,9 +116,12 @@ export class SupabaseChatService implements ChatService {
     const session = ++this.session
     this.emit('connection:status', 'connecting')
 
-    const channel = this.client.channel(CHANNEL_NAME, { config: { presence: { key: this.clientId } } })
+    const channel = this.client.channel(CHANNEL_NAME, {
+      config: { presence: { key: this.clientId }, broadcast: { self: false } },
+    })
     this.channel = channel
     channel
+      .on('broadcast', { event: 'typing' }, ({ payload }) => this.onTyping(session, payload))
       .on('presence', { event: 'sync' }, () => this.onSync(session))
       .on('presence', { event: 'join' }, ({ newPresences }) => this.onPresence(session, 'presence:joined', newPresences))
       .on('presence', { event: 'leave' }, ({ leftPresences }) => this.onPresence(session, 'presence:left', leftPresences))
@@ -149,8 +157,51 @@ export class SupabaseChatService implements ChatService {
     })()
   }
 
+  setTyping(typing: boolean): void {
+    if (!this.joined || !this.online || !this.channel) return
+    const now = Date.now()
+    if (typing) {
+      if (now - this.lastTypingSentAt < TYPING_SEND_INTERVAL_MS) return // 節流:不要每個按鍵都送
+      this.lastTypingSentAt = now
+    } else {
+      if (this.lastTypingSentAt === 0) return // 本來就沒在輸入,不用通知
+      this.lastTypingSentAt = 0
+    }
+    // 「正在輸入」只是提示,送不出去也沒關係,所以不處理失敗
+    void this.channel
+      .send({ type: 'broadcast', event: 'typing', payload: { clientId: this.clientId, typing } })
+      .catch(() => undefined)
+  }
+
   leave(): void {
     this.teardown()
+  }
+
+  /** 收到別人的「正在輸入」。內容來自網路,先檢查格式再使用 */
+  private onTyping(session: number, raw: unknown): void {
+    if (session !== this.session || !this.joined) return
+    if (typeof raw !== 'object' || raw === null) return
+    const r = raw as Record<string, unknown>
+    if (typeof r.clientId !== 'string' || typeof r.typing !== 'boolean') return
+    if (r.clientId === this.clientId || r.clientId.length > 64) return
+    const clientId = r.clientId
+
+    const old = this.typingTimers.get(clientId)
+    if (old) clearTimeout(old)
+    if (!r.typing) {
+      this.typingTimers.delete(clientId)
+      this.emit('typing:changed', { clientId, typing: false })
+      return
+    }
+    this.emit('typing:changed', { clientId, typing: true })
+    // 對方關掉分頁、斷線時不會再通知「停止」,所以一段時間沒更新就自己清掉
+    this.typingTimers.set(
+      clientId,
+      setTimeout(() => {
+        this.typingTimers.delete(clientId)
+        this.emit('typing:changed', { clientId, typing: false })
+      }, TYPING_EXPIRE_MS),
+    )
   }
 
   // ---------------------------------------------------------------- 連線狀態
@@ -401,6 +452,9 @@ export class SupabaseChatService implements ChatService {
     this.buffer = []
     this.seen.clear()
     this.lastId = 0
+    this.lastTypingSentAt = 0
+    for (const id of this.typingTimers.values()) clearTimeout(id)
+    this.typingTimers.clear()
     if (channel) {
       void channel
         .untrack()

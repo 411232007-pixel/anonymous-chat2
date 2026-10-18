@@ -68,3 +68,16 @@ export const ChatIcon = ({ size }: P) => (
     <path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.5A8 8 0 1 1 21 12z" />
   </Icon>
 )
+
+export const SearchIcon = ({ size }: P) => (
+  <Icon size={size}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="M20 20l-3.5-3.5" />
+  </Icon>
+)
+
+export const CloseIcon = ({ size }: P) => (
+  <Icon size={size}>
+    <path d="M6 6l12 12M18 6L6 18" />
+  </Icon>
+)

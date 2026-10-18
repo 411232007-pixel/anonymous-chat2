@@ -86,6 +86,7 @@ type Wire =
   | { t: 'here' | 'hello'; user: User }
   | { t: 'bye'; clientId: string }
   | { t: 'msg'; message: Message }
+  | { t: 'typing'; clientId: string; typing: boolean }
 
 export interface MockOptions {
   /** 不放機器人(測試用)。預設放 */
@@ -114,6 +115,8 @@ export class MockChatService implements ChatService {
   private offline = false
   private failNext = false
   private lastId = 0
+  private lastTypingSentAt = 0
+  private typingTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private readonly botsEnabled: boolean
   private readonly empty: boolean
   private readonly latency: number
@@ -178,6 +181,20 @@ export class MockChatService implements ChatService {
       this.emit('message:new', message)
       this.maybeBotReply()
     }, 120)
+  }
+
+  /** 只有同一個瀏覽器的其他分頁看得到(和階段二一樣:節流、對方逾時自動清掉) */
+  setTyping(typing: boolean): void {
+    if (!this.joined || this.offline) return
+    const now = Date.now()
+    if (typing) {
+      if (now - this.lastTypingSentAt < 2500) return
+      this.lastTypingSentAt = now
+    } else {
+      if (this.lastTypingSentAt === 0) return
+      this.lastTypingSentAt = 0
+    }
+    this.post({ t: 'typing', clientId: this.clientId, typing })
   }
 
   leave(): void {
@@ -353,6 +370,23 @@ export class MockChatService implements ChatService {
         if (this.joined) this.live('presence:left', user)
         break
       }
+      case 'typing': {
+        if (!this.joined || wire.clientId === this.clientId) break
+        const old = this.typingTimers.get(wire.clientId)
+        if (old) clearTimeout(old)
+        this.typingTimers.delete(wire.clientId)
+        this.live('typing:changed', { clientId: wire.clientId, typing: wire.typing })
+        if (wire.typing) {
+          this.typingTimers.set(
+            wire.clientId,
+            setTimeout(() => {
+              this.typingTimers.delete(wire.clientId)
+              this.live('typing:changed', { clientId: wire.clientId, typing: false })
+            }, 5000),
+          )
+        }
+        break
+      }
       case 'msg':
         if (!this.joined) break
         this.lastId = Math.max(this.lastId, wire.message.id)
@@ -375,6 +409,9 @@ export class MockChatService implements ChatService {
     this.closeChannel()
     this.remote.clear()
     this.botOnline.clear()
+    this.lastTypingSentAt = 0
+    for (const id of this.typingTimers.values()) clearTimeout(id)
+    this.typingTimers.clear()
     this.queue = []
     this.me = null
     this.joining = false

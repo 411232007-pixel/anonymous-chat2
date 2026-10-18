@@ -1,8 +1,9 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { Message } from '../../chat/types'
 import type { TimelineItem } from '../../hooks/useChat'
+import { matchesQuery, splitByQuery } from '../../logic/search'
 import { Avatar } from '../Avatar'
-import { ArrowDownIcon, ChatIcon } from '../icons'
+import { ArrowDownIcon, ChatIcon, SearchIcon } from '../icons'
 
 const BOTTOM_THRESHOLD = 48
 
@@ -22,9 +23,11 @@ interface Props {
   selfId: string
   /** 最近的訊息還在載入 */
   loading: boolean
+  /** 搜尋字。空字串 = 沒有在搜尋 */
+  query: string
 }
 
-export function MessageList({ items, selfId, loading }: Props) {
+export function MessageList({ items, selfId, loading, query }: Props) {
   const scroller = useRef<HTMLDivElement>(null)
   const atBottom = useRef(true)
   const previousCount = useRef(0)
@@ -66,6 +69,12 @@ export function MessageList({ items, selfId, loading }: Props) {
     setHasUnseen(false)
   }
 
+  // 搜尋時只留下符合的訊息(系統提示行不參與搜尋);捲動的判斷仍以完整的 items 為準
+  const searching = query !== ''
+  const visible = searching
+    ? items.filter((i) => i.kind === 'message' && matchesQuery([i.message.content, i.message.nickname], query))
+    : items
+
   return (
     <div className="stage__messages">
       <div
@@ -81,16 +90,16 @@ export function MessageList({ items, selfId, loading }: Props) {
         <div className="list__inner">
           {loading ? (
             <Skeleton />
-          ) : items.length === 0 ? (
-            <EmptyState />
+          ) : visible.length === 0 ? (
+            searching ? <NoResults /> : <EmptyState />
           ) : (
-            items.map((item) =>
+            visible.map((item) =>
               item.kind === 'system' ? (
                 <div key={item.key} className="system-line">
                   {item.text}
                 </div>
               ) : (
-                <MessageRow key={item.key} message={item.message} mine={item.message.clientId === selfId} />
+                <MessageRow key={item.key} message={item.message} mine={item.message.clientId === selfId} query={query} />
               ),
             )
           )}
@@ -107,13 +116,33 @@ export function MessageList({ items, selfId, loading }: Props) {
   )
 }
 
-function MessageRow({ message, mine }: { message: Message; mine: boolean }) {
+/** 把文字切成片段,符合的用 <mark> 標示。全部是純文字節點,不會產生 HTML */
+function Highlight({ text, query }: { text: string; query: string }) {
+  if (query === '') return <>{text}</>
+  return (
+    <>
+      {splitByQuery(text, query).map((piece, index) =>
+        piece.match ? (
+          <mark key={index} className="hit">
+            {piece.text}
+          </mark>
+        ) : (
+          <span key={index}>{piece.text}</span>
+        ),
+      )}
+    </>
+  )
+}
+
+function MessageRow({ message, mine, query }: { message: Message; mine: boolean; query: string }) {
   const time = formatTime(message.createdAt)
   if (mine) {
     return (
       <div className="msg msg--mine">
         <span className="msg__time">{time}</span>
-        <div className="bubble bubble--mine">{message.content}</div>
+        <div className="bubble bubble--mine">
+          <Highlight text={message.content} query={query} />
+        </div>
       </div>
     )
   }
@@ -122,10 +151,14 @@ function MessageRow({ message, mine }: { message: Message; mine: boolean }) {
       <Avatar nickname={message.nickname} size="md" />
       <div className="msg__body">
         <div className="msg__meta">
-          <span className="msg__name">{message.nickname}</span>
+          <span className="msg__name">
+            <Highlight text={message.nickname} query={query} />
+          </span>
           <span className="msg__time">{time}</span>
         </div>
-        <div className="bubble">{message.content}</div>
+        <div className="bubble">
+          <Highlight text={message.content} query={query} />
+        </div>
       </div>
     </div>
   )
@@ -152,6 +185,16 @@ function Skeleton() {
         </div>
       </div>
       <p className="skeleton__text">正在載入最近的訊息…</p>
+    </div>
+  )
+}
+
+function NoResults() {
+  return (
+    <div className="empty">
+      <SearchIcon size={28} />
+      <p className="empty__title">沒有符合的訊息</p>
+      <p className="empty__text">換個關鍵字試試,或關閉搜尋看全部訊息。</p>
     </div>
   )
 }

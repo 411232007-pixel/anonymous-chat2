@@ -16,9 +16,11 @@ interface Props {
   offline: boolean
   retrySeconds: number
   sendFailed: boolean
+  /** 送出失敗的原因;rate_limited = 伺服器擋下太頻繁的訊息 */
+  failReason?: string
 }
 
-export function MessageInput({ draft, onDraftChange, onSend, offline, retrySeconds, sendFailed }: Props) {
+export function MessageInput({ draft, onDraftChange, onSend, offline, retrySeconds, sendFailed, failReason }: Props) {
   const textarea = useRef<HTMLTextAreaElement>(null)
   const narrow = useMediaQuery(NARROW_QUERY)
   const touch = useMediaQuery(TOUCH_QUERY)
@@ -69,7 +71,7 @@ export function MessageInput({ draft, onDraftChange, onSend, offline, retrySecon
     hint = (
       <span className="hint hint--error" role="alert">
         <AlertIcon />
-        送出失敗,請再試一次
+        {failReason === 'rate_limited' ? '送太快了,伺服器暫時擋下這則訊息,請稍等幾秒再送' : '送出失敗,請再試一次'}
       </span>
     )
   } else if (!narrow) {
