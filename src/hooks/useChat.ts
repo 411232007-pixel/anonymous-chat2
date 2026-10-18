@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import type { ChatService } from '../chat/ChatService'
-import type { ConnectionStatus, Message, User } from '../chat/types'
+import type { ConnectionStatus, JoinRejectReason, Message, User } from '../chat/types'
 import { validateNickname, type NicknameError } from '../logic/nickname'
 import { validateMessage } from '../logic/sanitize'
 import { createRateLimiter } from '../logic/rateLimit'
@@ -9,7 +9,7 @@ import { saveNickname } from '../logic/storage'
 export type Phase = 'join' | 'joining' | 'chat'
 
 /** 輸入代號畫面要顯示的錯誤(由畫面轉成文字) */
-export type JoinError = NicknameError | 'nickname_taken' | 'connection_lost'
+export type JoinError = NicknameError | 'nickname_taken' | 'connection_lost' | 'unavailable'
 
 /** 對話裡的一項:一則訊息,或一行系統提示(進來/離開) */
 export type TimelineItem =
@@ -34,7 +34,7 @@ type Action =
   | { type: 'join_requested'; nickname: string }
   | { type: 'join_invalid'; error: NicknameError }
   | { type: 'join_accepted'; users: User[] }
-  | { type: 'join_rejected' }
+  | { type: 'join_rejected'; reason: JoinRejectReason }
   | { type: 'status'; status: ConnectionStatus }
   | { type: 'history'; messages: Message[] }
   | { type: 'message'; message: Message }
@@ -90,7 +90,12 @@ function makeReducer(selfId: string) {
         return {
           ...initialState,
           nickname: state.nickname,
-          joinError: state.phase === 'chat' ? 'connection_lost' : 'nickname_taken',
+          joinError:
+            action.reason === 'unavailable'
+              ? 'unavailable'
+              : state.phase === 'chat'
+                ? 'connection_lost'
+                : 'nickname_taken',
         }
       case 'status':
         return { ...state, status: action.status }
@@ -164,7 +169,7 @@ export function useChat(service: ChatService): ChatApi {
         saveNickname(pendingNickname.current)
         dispatch({ type: 'join_accepted', users })
       }),
-      service.on('join:rejected', () => dispatch({ type: 'join_rejected' })),
+      service.on('join:rejected', ({ reason }) => dispatch({ type: 'join_rejected', reason })),
       service.on('history:loaded', (messages) => dispatch({ type: 'history', messages })),
       service.on('message:new', (message) => dispatch({ type: 'message', message })),
       service.on('message:failed', ({ content }) => dispatch({ type: 'failed', content })),

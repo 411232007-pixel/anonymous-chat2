@@ -10,6 +10,7 @@ const ERROR_TEXT: Record<JoinError, string> = {
   invalid_chars: '代號含有不能使用的字元,請換一個。',
   nickname_taken: '這個代號有人在用了,請換一個。',
   connection_lost: '連線中斷太久,代號已被使用,請重新選擇。',
+  unavailable: '連不上聊天室,請檢查網路後再試一次。',
 }
 
 export function JoinScreen({ chat }: { chat: ChatApi }) {

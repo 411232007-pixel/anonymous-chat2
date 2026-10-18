@@ -23,7 +23,8 @@ export interface Message {
   createdAt: string
 }
 
-export type JoinRejectReason = 'nickname_taken'
+/** unavailable = 一直連不上(網路不通、服務暫停、達到連線上限) */
+export type JoinRejectReason = 'nickname_taken' | 'unavailable'
 
 /** 服務發給畫面的事件。事件名稱 → 帶的資料 */
 export interface ChatEvents {
